@@ -409,6 +409,20 @@ button{font-family:inherit}
 .font-chip:hover{border-color:#cfcecb;background:#f7f7f5}
 .font-chip.on{border-color:#171716;background:#171716;color:#fff}
 .font-chip.on small{opacity:.62}
+.ink-row{display:flex;align-items:center;gap:8px}
+.ink-swatches{display:flex;align-items:center;gap:7px}
+.ink-sw{
+  width:25px;height:25px;border-radius:50%;border:1px solid rgba(20,18,15,.16);background:#fff;
+  cursor:pointer;padding:0;flex:0 0 auto;transition:transform .14s,box-shadow .14s;
+}
+.ink-sw:hover{transform:translateY(-1px)}
+.ink-sw.on{box-shadow:0 0 0 2px #fff,0 0 0 3.5px #191817}
+.ink-sw[data-ink=""]{
+  width:auto;height:25px;padding:0 10px;border-radius:8px;background:#fcfcfb;color:var(--ink2);
+  font-size:10.5px;font-family:inherit;letter-spacing:.06em;
+}
+.ink-sw[data-ink=""].on{background:#191817;color:#fff;border-color:#191817;box-shadow:none}
+.ink-custom{margin-left:auto}
 .bg-color{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink2);cursor:pointer}
 .bg-color-sw{
   width:28px;height:28px;border-radius:9px;border:1px solid rgba(20,18,15,.14);display:block;
@@ -675,6 +689,22 @@ button{font-family:inherit}
       <button class="font-chip" data-font="kai" style="font-family:var(--script-cn)">楷体<small>手写感</small></button>
     </div>
 
+    <div class="panel-label">文字颜色</div>
+    <div class="ink-row" id="inkRow">
+      <button class="ink-sw on" data-ink="" title="跟随背景自动">自动</button>
+      <div class="ink-swatches" id="inkSwatches">
+        <button class="ink-sw" data-ink="#171716" style="background:#171716" title="墨黑"></button>
+        <button class="ink-sw" data-ink="#6f6354" style="background:#6f6354" title="暖棕"></button>
+        <button class="ink-sw" data-ink="#b0564f" style="background:#b0564f" title="砖红"></button>
+        <button class="ink-sw" data-ink="#3f5c6b" style="background:#3f5c6b" title="雾蓝"></button>
+        <button class="ink-sw" data-ink="#5c6250" style="background:#5c6250" title="橄榄"></button>
+        <button class="ink-sw" data-ink="#f8f5ef" style="background:#f8f5ef" title="米白"></button>
+      </div>
+      <label class="bg-color ink-custom" title="自定义颜色">
+        <span class="bg-color-sw" id="inkSw" style="background:#171716"><input type="color" id="inkColor" value="#171716"></span>
+      </label>
+    </div>
+
     <div class="panel-label">标题字号</div>
     <div class="bg-op-head"><span>名字</span><b id="titleSizeVal">30px</b></div>
     <input type="range" id="titleSize" min="20" max="46" step="1" value="30" class="pop-range">
@@ -736,7 +766,7 @@ const cardEl = $('#card');
 function blankState(name) {
   return {
     name: name || '', logo: 'logo', avatar: '', subtitle: '', bio: '',
-    blocks: [], selectedId: null, font: 'hei', titleSize: 30, gap: 24,
+    blocks: [], selectedId: null, font: 'hei', ink: '', titleSize: 30, gap: 24,
     bg: { color: '#ffffff', dots: true, dotColor: '#dcdcd8', image: '', dark: false }
   };
 }
@@ -804,6 +834,36 @@ function applyFont() {
   cardEl.classList.toggle('font-song', f === 'song');
   cardEl.classList.toggle('font-kai', f === 'kai');
   $$('#fontChips .font-chip').forEach(c => c.classList.toggle('on', c.dataset.font === f));
+}
+
+function rgbaOf(hex, a) {
+  const h = String(hex || '').replace('#', '');
+  const v = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+  if (v.length !== 6) return hex;
+  const r = parseInt(v.slice(0, 2), 16), g = parseInt(v.slice(2, 4), 16), b = parseInt(v.slice(4, 6), 16);
+  if ([r, g, b].some(isNaN)) return hex;
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+}
+function applyInk() {
+  const c = (S && S.ink) || '';
+  const props = ['--ink', '--ink2', '--mute', '--mute2'];
+  if (!c) {
+    props.forEach(p => cardEl.style.removeProperty(p));
+  } else {
+    cardEl.style.setProperty('--ink', c);
+    cardEl.style.setProperty('--ink2', rgbaOf(c, .84));
+    cardEl.style.setProperty('--mute', rgbaOf(c, .58));
+    cardEl.style.setProperty('--mute2', rgbaOf(c, .4));
+  }
+  syncInkUI();
+}
+function syncInkUI() {
+  const c = (S && S.ink) || '';
+  $$('#inkRow .ink-sw').forEach(b => b.classList.toggle('on', (b.dataset.ink || '') === c));
+  const pick = c || '#171716';
+  const sw = $('#inkSw'), inp = $('#inkColor');
+  if (sw) sw.style.background = pick;
+  if (inp && /^#[0-9a-f]{6}$/i.test(pick)) inp.value = pick;
 }
 
 function applyTitleSize() {
@@ -886,31 +946,123 @@ function toast(msg) {
 }
 
 /* ---------------- contenteditable ---------------- */
+const ZERO_W = /[\u200b\u200c\u200d\ufeff]/g;
+function readField(node) {
+  return node.innerText.replace(ZERO_W, '').replace(/\u00a0/g, ' ').replace(/\n+$/, '');
+}
 function syncEmpty(node) {
-  node.classList.toggle('is-empty', node.textContent.trim() === '');
+  node.classList.toggle('is-empty', node.textContent.replace(ZERO_W, '').trim() === '');
 }
 function setField(node, val) {
   if (document.activeElement === node) return;
   node.textContent = val || '';
   syncEmpty(node);
 }
+/* 光标位置（以纯文本字符计） */
+function caretOffset(node) {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return -1;
+  const r = sel.getRangeAt(0);
+  if (!node.contains(r.startContainer)) return -1;
+  const pre = document.createRange();
+  pre.selectNodeContents(node);
+  try { pre.setEnd(r.startContainer, r.startOffset); } catch (e) { return -1; }
+  return pre.toString().length;
+}
+function placeCaret(node, offset) {
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+  let n, acc = 0;
+  while ((n = walker.nextNode())) {
+    const len = n.nodeValue.length;
+    if (acc + len >= offset) {
+      const r = document.createRange();
+      r.setStart(n, Math.max(0, Math.min(len, offset - acc)));
+      r.collapse(true);
+      const s = window.getSelection();
+      s.removeAllRanges(); s.addRange(r);
+      return;
+    }
+    acc += len;
+  }
+  const r = document.createRange();
+  r.selectNodeContents(node);
+  r.collapse(false);
+  const s = window.getSelection();
+  s.removeAllRanges(); s.addRange(r);
+}
+/* 手动删一个字（浏览器没删掉时兜底，也处理代理对） */
+function removeOneChar(node, offset, back) {
+  const text = node.textContent;
+  if (!text) return false;
+  let s = back ? offset - 1 : offset;
+  let e = back ? offset : offset + 1;
+  if (s < 0 || s >= text.length) return false;
+  if (!back && e < text.length) {
+    const c = text.charCodeAt(s);
+    if (c >= 0xD800 && c <= 0xDBFF) e++;      // emoji 等代理对
+  }
+  if (back && s > 0) {
+    const p = text.charCodeAt(s - 1);
+    if (p >= 0xD800 && p <= 0xDBFF) s--;
+  }
+  node.textContent = text.slice(0, s) + text.slice(e);
+  placeCaret(node, s);
+  return true;
+}
 function bindEditable(node, onChange, single) {
-  node.addEventListener('input', () => {
+  const commit = () => {
     syncEmpty(node);
-    const v = node.innerText.replace(/\u00a0/g, ' ').replace(/\n+$/, '');
-    onChange(v);
-  });
+    onChange(readField(node));
+  };
+  node.addEventListener('input', commit);
   node.addEventListener('keydown', e => {
-    if (single && e.key === 'Enter') { e.preventDefault(); node.blur(); }
-    if (e.key === 'Escape') node.blur();
+    if (single && e.key === 'Enter') { e.preventDefault(); node.blur(); return; }
+    if (e.key === 'Escape') { node.blur(); return; }
+    // 全选：只选中当前字段，方便整体改名
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
+      e.preventDefault();
+      const r = document.createRange();
+      r.selectNodeContents(node);
+      const s = window.getSelection();
+      s.removeAllRanges(); s.addRange(r);
+      return;
+    }
+    // 退格/删除兜底：有些浏览器（含手机输入法）在只剩最后一个字时删不掉
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      if (e.isComposing || e.keyCode === 229) return;
+      const back = e.key === 'Backspace';
+      const before = node.textContent;
+      const off = caretOffset(node);
+      const collapsed = (() => {
+        const s = window.getSelection();
+        return s && s.rangeCount && s.getRangeAt(0).collapsed;
+      })();
+      requestAnimationFrame(() => {
+        if (node.textContent !== before) return;   // 浏览器已经删掉了
+        if (!collapsed || off < 0) return;
+        if (removeOneChar(node, off, back)) commit();
+      });
+    }
   });
   node.addEventListener('paste', e => {
     e.preventDefault();
     let t = (e.clipboardData || window.clipboardData).getData('text/plain') || '';
+    t = t.replace(ZERO_W, '');
     if (single) t = t.replace(/[\r\n]+/g, ' ');
     document.execCommand('insertText', false, t);
   });
-  node.addEventListener('blur', () => { syncEmpty(node); queueSave(); });
+  node.addEventListener('blur', () => {
+    // 清掉零宽字符，避免「看着空了却还留一个字」的情况
+    if (/[\u200b\u200c\u200d\ufeff]/.test(node.textContent)) {
+      node.textContent = node.textContent.replace(ZERO_W, '');
+    }
+    if (!node.textContent.trim()) {
+      node.textContent = '';
+      onChange('');
+    }
+    syncEmpty(node);
+    queueSave();
+  });
 }
 
 /* ---------------- image helpers ---------------- */
@@ -993,6 +1145,7 @@ function normalizeDraft(d) {
   if (!out.bg) out.bg = { color: '#ffffff', dots: true, dotColor: '#dcdcd8', image: '', dark: false };
   if (!out.bg.dotColor) out.bg.dotColor = out.bg.dark ? '#3d3d3a' : '#dcdcd8';
   if (!out.font) out.font = 'hei';
+  if (out.ink == null) out.ink = '';
   if (!out.titleSize) out.titleSize = 30;
   if (out.gap == null) out.gap = 24;
   // 顶部 logo 默认就有「logo」字样，没设置过也不会空着
@@ -1055,6 +1208,7 @@ function renderAll() {
   renderBlocks();
   applyBg();
   applyFont();
+  applyInk();
   applyTitleSize();
   applyGap();
 }
@@ -1656,6 +1810,21 @@ $('#fontChips').addEventListener('click', e => {
   if (!chip) return;
   S.font = chip.dataset.font;
   applyFont();
+  queueSave();
+});
+
+$('#inkRow').addEventListener('click', e => {
+  const b = e.target.closest('.ink-sw');
+  if (!b) return;
+  S.ink = b.dataset.ink || '';
+  applyInk();
+  queueSave();
+});
+
+$('#inkColor').addEventListener('input', e => {
+  S.ink = e.target.value;
+  $('#inkSw').style.background = S.ink;
+  applyInk();
   queueSave();
 });
 
