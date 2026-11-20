@@ -173,7 +173,7 @@ button{font-family:inherit}
 .avatar:hover .avatar-del{display:grid}
 
 .name{
-  font-family:var(--page-font);font-size:30px;font-weight:600;line-height:1.34;text-align:center;
+  font-family:var(--page-font);font-size:var(--name-size,30px);font-weight:600;line-height:1.34;text-align:center;
   letter-spacing:.01em;margin:0;padding:0 4px;border-radius:8px;color:var(--ink);
 }
 .sub{
@@ -507,7 +507,7 @@ button{font-family:inherit}
     <h1>做一页属于你的自我介绍</h1>
     <p class="w-sub">先告诉我你的名字，剩下的慢慢填。</p>
     <label class="w-label" for="nameInput">你的名字</label>
-    <input id="nameInput" class="w-input" type="text" maxlength="24" placeholder="例如：林小满" autocomplete="off">
+    <input id="nameInput" class="w-input" type="text" maxlength="24" placeholder="输入名字" autocomplete="off">
     <button id="startBtn" class="btn dark w-btn">开始制作</button>
     <button id="resumeBtn" class="w-resume hidden" style="display:none">继续上次的编辑 · <b id="draftName"></b></button>
   </div>
@@ -667,6 +667,10 @@ button{font-family:inherit}
       <button class="font-chip" data-font="kai" style="font-family:var(--script-cn)">楷体<small>手写感</small></button>
     </div>
 
+    <div class="panel-label">标题字号</div>
+    <div class="bg-op-head"><span>名字</span><b id="titleSizeVal">30px</b></div>
+    <input type="range" id="titleSize" min="20" max="46" step="1" value="30" class="pop-range">
+
     <div class="panel-label">板块透明度</div>
     <div class="bg-op-head"><span>全部板块</span><b id="bgOpVal">100%</b></div>
     <input type="range" id="bgOpacity" min="10" max="100" step="5" value="100" class="pop-range">
@@ -720,7 +724,7 @@ const cardEl = $('#card');
 function blankState(name) {
   return {
     name: name || '', logo: '', avatar: '', subtitle: '', bio: '',
-    blocks: [], selectedId: null, font: 'hei',
+    blocks: [], selectedId: null, font: 'hei', titleSize: 30,
     bg: { color: '#ffffff', dots: true, dotColor: '#dcdcd8', image: '', dark: false }
   };
 }
@@ -788,6 +792,16 @@ function applyFont() {
   cardEl.classList.toggle('font-song', f === 'song');
   cardEl.classList.toggle('font-kai', f === 'kai');
   $$('#fontChips .font-chip').forEach(c => c.classList.toggle('on', c.dataset.font === f));
+}
+
+function applyTitleSize() {
+  const v = Math.min(46, Math.max(20, (S && S.titleSize) || 30));
+  cardEl.style.setProperty('--name-size', v + 'px');
+  const r = $('#titleSize');
+  if (r) {
+    r.value = v;
+    $('#titleSizeVal').textContent = v + 'px';
+  }
 }
 
 function applyBg() {
@@ -934,6 +948,7 @@ function normalizeDraft(d) {
   if (!out.bg) out.bg = { color: '#ffffff', dots: true, dotColor: '#dcdcd8', image: '', dark: false };
   if (!out.bg.dotColor) out.bg.dotColor = out.bg.dark ? '#3d3d3a' : '#dcdcd8';
   if (!out.font) out.font = 'hei';
+  if (!out.titleSize) out.titleSize = 30;
   return out;
 }
 
@@ -992,6 +1007,7 @@ function renderAll() {
   renderBlocks();
   applyBg();
   applyFont();
+  applyTitleSize();
 }
 
 function renderAvatar() {
@@ -1586,6 +1602,12 @@ $('#fontChips').addEventListener('click', e => {
   if (!chip) return;
   S.font = chip.dataset.font;
   applyFont();
+  queueSave();
+});
+
+$('#titleSize').addEventListener('input', e => {
+  S.titleSize = +e.target.value;
+  applyTitleSize();
   queueSave();
 });
 
