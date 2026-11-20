@@ -123,6 +123,7 @@ button{font-family:inherit}
   --ink:#171716;--ink2:#4b4b49;--mute:#9a9a97;--mute2:#c2c1bd;
   --line:#e7e7e5;--line2:#efefed;--fill:#f4f4f2;--panel:#ffffff;
   --ph:#c4c3bf;--dash:#d6d5d1;--hover:#fafafa;
+  --panel-rgb:255,255,255;--panel-a:1;
   --page-font:var(--hei);
   font-family:var(--page-font);
   background-color:#fff;border-radius:26px;border:1px solid rgba(0,0,0,.07);
@@ -145,6 +146,7 @@ button{font-family:inherit}
   --ink:#f8f5ef;--ink2:rgba(248,245,239,.82);--mute:rgba(248,245,239,.56);--mute2:rgba(248,245,239,.38);
   --line:rgba(255,255,255,.17);--line2:rgba(255,255,255,.11);--fill:rgba(255,255,255,.09);--panel:rgba(255,255,255,.055);
   --ph:rgba(248,245,239,.42);--dash:rgba(255,255,255,.26);--hover:rgba(255,255,255,.07);
+  --panel-a:.075;
   border-color:rgba(255,255,255,.13);
 }
 
@@ -220,6 +222,11 @@ button{font-family:inherit}
 .tb-sep{width:1px;height:15px;background:#efe8db;margin:0 3px}
 
 /* text block */
+.text-blk{
+  background:rgba(var(--panel-rgb),calc(var(--panel-a) * var(--blk-alpha,1)));
+  border:1px solid var(--line2);border-radius:16px;padding:12px 14px;
+  transition:background .18s,border-color .18s;
+}
 .tx-title{font-size:16px;font-weight:600;line-height:1.5;letter-spacing:.01em}
 .tx-body{font-size:14px;font-weight:400;line-height:1.78;color:var(--ink2);margin-top:5px}
 .tx-title.is-empty::before,.tx-body.is-empty::before{content:attr(data-ph);color:var(--ph);pointer-events:none}
@@ -228,9 +235,10 @@ button{font-family:inherit}
 /* button block */
 .blk-btn{
   display:flex;align-items:center;gap:14px;padding:11px 13px;border-radius:16px;
-  border:1px solid var(--line2);background:var(--panel);transition:background .18s,border-color .18s,box-shadow .18s;
+  border:1px solid var(--line2);background:rgba(var(--panel-rgb),calc(var(--panel-a) * var(--blk-alpha,1)));
+  transition:background .18s,border-color .18s,box-shadow .18s;
 }
-.blk-btn:hover{background:var(--hover);border-color:var(--line);box-shadow:0 8px 18px -14px rgba(50,40,25,.6)}
+.blk-btn:hover{background:rgba(var(--panel-rgb),calc(var(--panel-a) * var(--blk-alpha,1) + .04));border-color:var(--line);box-shadow:0 8px 18px -14px rgba(50,40,25,.6)}
 .blk-btn-icon{
   width:46px;height:46px;flex:0 0 46px;border-radius:13px;background:var(--fill);
   display:grid;place-items:center;font-size:21px;overflow:hidden;position:relative;cursor:pointer;
@@ -472,7 +480,7 @@ button{font-family:inherit}
 .clean .is-empty::before{display:none!important}
 .clean .block.sel{outline:none}
 .clean [contenteditable]{pointer-events:none}
-.clean .blk-btn:hover{background:var(--panel);border-color:var(--line2);box-shadow:none}
+.clean .blk-btn:hover{background:rgba(var(--panel-rgb),calc(var(--panel-a) * var(--blk-alpha,1)));border-color:var(--line2);box-shadow:none}
 .clean .spacer::before{border-top-color:transparent}
 .clean .blocks:empty::after{display:none}
 .clean .avatar-wrap.is-empty{display:none}
@@ -1105,7 +1113,7 @@ function buildBlock(b) {
   if (b.type === 'spacer') wrap.classList.add('is-spacer');
   if (S.selectedId === b.id) wrap.classList.add('sel');
   const content = buildContent(b);
-  if (b.type !== 'image' && b.opacity != null) content.style.opacity = b.opacity / 100;
+  if (b.type !== 'image' && b.opacity != null) content.style.setProperty('--blk-alpha', (b.opacity / 100).toFixed(2));
   wrap.appendChild(content);
   wrap.appendChild(buildToolbar(b));
   wrap.addEventListener('click', e => {
@@ -1505,7 +1513,7 @@ function openOpacityPopover(b, anchor) {
     val.textContent = v + '%';
     const wrap = blocksEl.querySelector('[data-id="' + b.id + '"]');
     const c = wrap && wrap.querySelector('.block-content');
-    if (c) c.style.opacity = (v / 100).toFixed(2);
+    if (c) c.style.setProperty('--blk-alpha', (v / 100).toFixed(2));
     const tbBtn = wrap && wrap.querySelector('[data-act="opacity"]');
     if (tbBtn) tbBtn.classList.toggle('on', v < 100);
     queueSave();
@@ -1670,7 +1678,7 @@ $('#bgOpacity').addEventListener('input', e => {
     const wrap = blocksEl.querySelector('[data-id="' + b.id + '"]');
     if (!wrap) return;
     const c = wrap.querySelector('.block-content');
-    if (c) c.style.opacity = (v / 100).toFixed(2);
+    if (c) c.style.setProperty('--blk-alpha', (v / 100).toFixed(2));
     const btn = wrap.querySelector('[data-act="opacity"]');
     if (btn) btn.classList.toggle('on', v < 100);
   });
