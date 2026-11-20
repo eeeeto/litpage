@@ -177,11 +177,11 @@ button{font-family:inherit}
   letter-spacing:.01em;margin:0;padding:0 4px;border-radius:8px;color:var(--ink);
 }
 .sub{
-  margin-top:9px;font-size:12.5px;color:var(--mute);text-align:center;letter-spacing:.04em;
+  margin-top:max(4px, calc(var(--block-gap, 24px) * .38));font-size:12.5px;color:var(--mute);text-align:center;letter-spacing:.04em;
   line-height:1.6;padding:0 8px;border-radius:8px;
 }
 .bio{
-  margin-top:9px;font-size:13px;line-height:1.8;color:var(--ink2);text-align:center;
+  margin-top:max(4px, calc(var(--block-gap, 24px) * .38));font-size:13px;line-height:1.8;color:var(--ink2);text-align:center;
   padding:0 10px;border-radius:8px;
 }
 .hfield{transition:background .18s}
@@ -190,7 +190,7 @@ button{font-family:inherit}
 .hfield.is-empty::before{content:attr(data-ph);color:var(--ph);pointer-events:none}
 
 /* ---------- blocks ---------- */
-.blocks{margin-top:26px;padding-bottom:24px}
+.blocks{margin-top:calc(var(--block-gap, 24px) * 1.08);padding-bottom:24px}
 .blocks:empty::after{
   content:'还没有板块';display:block;text-align:center;
   font-size:11.5px;color:var(--ph);letter-spacing:.04em;padding:4px 0;line-height:1.6;
@@ -671,8 +671,8 @@ button{font-family:inherit}
     <div class="bg-op-head"><span>名字</span><b id="titleSizeVal">30px</b></div>
     <input type="range" id="titleSize" min="20" max="46" step="1" value="30" class="pop-range">
 
-    <div class="panel-label">板块间距</div>
-    <div class="bg-op-head"><span>板块之间</span><b id="gapVal">24px</b></div>
+    <div class="panel-label">间距</div>
+    <div class="bg-op-head"><span>板块 / 名字 / 简介</span><b id="gapVal">24px</b></div>
     <input type="range" id="gapSize" min="6" max="60" step="2" value="24" class="pop-range">
 
     <div class="panel-label">板块透明度</div>
