@@ -735,7 +735,7 @@ const cardEl = $('#card');
 
 function blankState(name) {
   return {
-    name: name || '', logo: '', avatar: '', subtitle: '', bio: '',
+    name: name || '', logo: 'logo', avatar: '', subtitle: '', bio: '',
     blocks: [], selectedId: null, font: 'hei', titleSize: 30, gap: 24,
     bg: { color: '#ffffff', dots: true, dotColor: '#dcdcd8', image: '', dark: false }
   };
@@ -995,6 +995,8 @@ function normalizeDraft(d) {
   if (!out.font) out.font = 'hei';
   if (!out.titleSize) out.titleSize = 30;
   if (out.gap == null) out.gap = 24;
+  // 顶部 logo 默认就有「logo」字样，没设置过也不会空着
+  if (!String(out.logo == null ? '' : out.logo).trim()) out.logo = 'logo';
   return out;
 }
 
