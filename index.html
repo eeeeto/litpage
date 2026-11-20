@@ -195,7 +195,7 @@ button{font-family:inherit}
   content:'还没有板块';display:block;text-align:center;
   font-size:11.5px;color:var(--ph);letter-spacing:.04em;padding:4px 0;line-height:1.6;
 }
-.block{position:relative;margin-top:24px;padding:2px 0;border-radius:12px}
+.block{position:relative;margin-top:var(--block-gap,24px);padding:2px 0;border-radius:12px}
 .block:first-child{margin-top:0}
 .block.sel{outline:1px dashed var(--dash);outline-offset:7px}
 
@@ -671,6 +671,10 @@ button{font-family:inherit}
     <div class="bg-op-head"><span>名字</span><b id="titleSizeVal">30px</b></div>
     <input type="range" id="titleSize" min="20" max="46" step="1" value="30" class="pop-range">
 
+    <div class="panel-label">板块间距</div>
+    <div class="bg-op-head"><span>板块之间</span><b id="gapVal">24px</b></div>
+    <input type="range" id="gapSize" min="6" max="60" step="2" value="24" class="pop-range">
+
     <div class="panel-label">板块透明度</div>
     <div class="bg-op-head"><span>全部板块</span><b id="bgOpVal">100%</b></div>
     <input type="range" id="bgOpacity" min="10" max="100" step="5" value="100" class="pop-range">
@@ -724,7 +728,7 @@ const cardEl = $('#card');
 function blankState(name) {
   return {
     name: name || '', logo: '', avatar: '', subtitle: '', bio: '',
-    blocks: [], selectedId: null, font: 'hei', titleSize: 30,
+    blocks: [], selectedId: null, font: 'hei', titleSize: 30, gap: 24,
     bg: { color: '#ffffff', dots: true, dotColor: '#dcdcd8', image: '', dark: false }
   };
 }
@@ -801,6 +805,16 @@ function applyTitleSize() {
   if (r) {
     r.value = v;
     $('#titleSizeVal').textContent = v + 'px';
+  }
+}
+
+function applyGap() {
+  const v = Math.min(60, Math.max(6, S && S.gap != null ? S.gap : 24));
+  cardEl.style.setProperty('--block-gap', v + 'px');
+  const r = $('#gapSize');
+  if (r) {
+    r.value = v;
+    $('#gapVal').textContent = v + 'px';
   }
 }
 
@@ -946,9 +960,11 @@ function pickImages(multiple, max) {
       const files = Array.from(inp.files || []).slice(0, multiple ? 24 : 1);
       inp.remove();
       const out = [];
+      let skipped = 0;
       for (const f of files) {
-        try { out.push(await shrink(f, max)); } catch (e) { /* skip */ }
+        try { out.push(await shrink(f, max)); } catch (e) { skipped++; }
       }
+      if (skipped) toast('有 ' + skipped + ' 张图片读取失败，已跳过');
       resolve(out);
     });
     inp.click();
@@ -970,6 +986,7 @@ function normalizeDraft(d) {
   if (!out.bg.dotColor) out.bg.dotColor = out.bg.dark ? '#3d3d3a' : '#dcdcd8';
   if (!out.font) out.font = 'hei';
   if (!out.titleSize) out.titleSize = 30;
+  if (out.gap == null) out.gap = 24;
   return out;
 }
 
@@ -1029,6 +1046,7 @@ function renderAll() {
   applyBg();
   applyFont();
   applyTitleSize();
+  applyGap();
 }
 
 function renderAvatar() {
@@ -1205,9 +1223,9 @@ function buildImage(b) {
     grid.appendChild(tile);
   });
 
-  // 三列固定 3 张、四列固定 4 张，填满即不再出现上传位
+  // 三列最多 3 张、四列最多 4 张；占位只出现在下一个空位，填满即消失
   const per = b.layout === 'three' ? 3 : b.layout === 'four' ? 4 : 1;
-  const slots = per === 1 ? 1 : Math.max(0, per - b.images.length);
+  const slots = per === 1 || b.images.length < per ? 1 : 0;
   for (let k = 0; k < slots; k++) {
     const add = el('button', 'tile tile-add edit-only', '+');
     add.title = per === 1 ? '上传图片' : '上传图片 · 可一次选 ' + per + ' 张';
@@ -1634,6 +1652,12 @@ $('#fontChips').addEventListener('click', e => {
 $('#titleSize').addEventListener('input', e => {
   S.titleSize = +e.target.value;
   applyTitleSize();
+  queueSave();
+});
+
+$('#gapSize').addEventListener('input', e => {
+  S.gap = +e.target.value;
+  applyGap();
   queueSave();
 });
 
