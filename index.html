@@ -269,12 +269,17 @@ button{font-family:inherit}
 .tile:hover .tile-del{opacity:1}
 .tile-del:hover{background:rgba(190,60,30,.9)}
 .tile-add{
-  border:1px dashed var(--dash);background:var(--panel);color:var(--mute);display:grid;place-items:center;
-  font-size:20px;cursor:pointer;min-height:84px;transition:background .16s,color .16s,border-color .16s;
+  border:1px dashed var(--dash);background-color:var(--panel);color:var(--mute);display:block;position:relative;
+  cursor:pointer;min-height:84px;transition:background-color .16s,color .16s,border-color .16s;
   border-radius:12px;font-family:inherit;
+  /* 加号用两条渐变线画，任何字体下都几何居中 */
+  background-image:linear-gradient(currentColor,currentColor),linear-gradient(currentColor,currentColor);
+  background-size:16px 1.6px,1.6px 16px;background-position:center center;background-repeat:no-repeat;
 }
-.tile-add:hover{background:var(--hover);color:var(--ink2);border-color:var(--mute)}
-.img-grid[data-layout="three"] .tile-add,.img-grid[data-layout="four"] .tile-add{min-height:0;aspect-ratio:1/1;font-size:15px;border-radius:9px}
+.tile-add:hover{background-color:var(--hover);color:var(--ink2);border-color:var(--mute)}
+.img-grid[data-layout="three"] .tile-add,.img-grid[data-layout="four"] .tile-add{
+  min-height:0;aspect-ratio:1/1;border-radius:9px;background-size:13px 1.6px,1.6px 13px;
+}
 
 /* spacer */
 .is-spacer{padding:0}
@@ -448,6 +453,13 @@ button{font-family:inherit}
 #bgClear:hover{color:#c1462c;border-color:#efd6cf;background:#fdf5f3}
 #bgClear:disabled{opacity:.4;cursor:default}
 .bg-hint{margin-top:11px;font-size:10.5px;color:#bdb5a7;letter-spacing:.03em;line-height:1.6}
+.veil-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+.veil-reset{
+  height:30px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:#fff;
+  color:var(--mute);font-size:11.5px;font-family:inherit;cursor:pointer;transition:color .16s,border-color .16s,background .16s;
+}
+.veil-reset:hover{color:var(--ink2);border-color:#ddd4c3;background:#faf7f0}
+.veil-reset:disabled{opacity:.4;cursor:default;background:#fff;border-color:var(--line);color:var(--mute)}
 
 .bg-op-head{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;color:var(--ink2)}
 .bg-op-head b{font-size:11.5px;color:var(--ink);font-weight:600}
@@ -682,6 +694,18 @@ button{font-family:inherit}
       <button id="bgClear" disabled>移除图片</button>
     </div>
 
+    <div class="panel-label">背景遮罩</div>
+    <div class="bg-op-head"><span>浓度</span><b id="veilVal">56%</b></div>
+    <input type="range" id="veilAlpha" min="0" max="100" step="2" value="56" class="pop-range">
+    <div class="veil-row">
+      <label class="bg-color" title="遮罩颜色">
+        <span class="bg-color-sw" id="veilSw" style="background:#ffffff"><input type="color" id="veilColor" value="#ffffff"></span>
+        遮罩颜色
+      </label>
+      <button class="veil-reset" id="veilReset">恢复默认</button>
+    </div>
+    <div class="bg-hint">只在导入背景图片后生效。浓度越高，背景图越淡、文字越清楚；底色背景不受影响。</div>
+
     <div class="panel-label">字体</div>
     <div class="font-chips" id="fontChips">
       <button class="font-chip" data-font="hei" style="font-family:var(--hei)">黑体<small>默认</small></button>
@@ -767,7 +791,7 @@ function blankState(name) {
   return {
     name: name || '', logo: 'logo', avatar: '', subtitle: '', bio: '',
     blocks: [], selectedId: null, font: 'hei', ink: '', titleSize: 30, gap: 24,
-    bg: { color: '#ffffff', dots: true, dotColor: '#dcdcd8', image: '', dark: false }
+    bg: { color: '#ffffff', dots: true, dotColor: '#dcdcd8', image: '', dark: false, veilColor: '', veilAlpha: null }
   };
 }
 function queueSave() {
@@ -909,6 +933,25 @@ function applyBg() {
     }
   }
   syncBgUI();
+  applyVeil();
+}
+/* ---------------- 背景遮罩（仅背景是图片时可见） ---------------- */
+function veilColorOf(bg) {
+  return bg.veilColor || (bg.dark ? '#0a0908' : '#ffffff');
+}
+function veilAlphaOf(bg) {
+  return bg.veilAlpha == null ? (bg.dark ? 55 : 56) : bg.veilAlpha;
+}
+function applyVeil() {
+  const bg = bgState();
+  const a = veilAlphaOf(bg);
+  const c = veilColorOf(bg);
+  $('#bgVeil').style.background = rgbaOf(c, a / 100);
+  $('#veilAlpha').value = a;
+  $('#veilVal').textContent = a + '%';
+  $('#veilColor').value = /^#[0-9a-f]{6}$/i.test(c) ? c : '#ffffff';
+  $('#veilSw').style.background = c;
+  $('#veilReset').disabled = !bg.veilColor && bg.veilAlpha == null;
 }
 function syncBgUI() {
   const bg = bgState();
@@ -1162,6 +1205,8 @@ function normalizeDraft(d) {
   out.selectedId = null;
   if (!out.bg) out.bg = { color: '#ffffff', dots: true, dotColor: '#dcdcd8', image: '', dark: false };
   if (!out.bg.dotColor) out.bg.dotColor = out.bg.dark ? '#3d3d3a' : '#dcdcd8';
+  if (out.bg.veilColor == null) out.bg.veilColor = '';
+  if (out.bg.veilAlpha == null) out.bg.veilAlpha = null;   // null = 跟背景明暗自动
   if (!out.font) out.font = 'hei';
   if (out.ink == null) out.ink = '';
   if (!out.titleSize) out.titleSize = 30;
@@ -1383,46 +1428,64 @@ function paintIcon(node, b) {
 }
 
 /* ---------- image ---------- */
+function imageTile(b, src, i) {
+  const tile = el('div', 'tile');
+  const img = new Image();
+  img.src = src;
+  img.alt = '';
+  tile.appendChild(img);
+  const del = el('button', 'tile-del edit-only', '✕');
+  del.title = '删除这张图';
+  del.addEventListener('click', e => {
+    e.stopPropagation();
+    b.images[i] = '';   // 留空槽，后面的图不往前挤
+    rebuildBlock(b.id);
+    queueSave();
+  });
+  tile.appendChild(del);
+  return tile;
+}
+function addTile(b, index, per) {
+  const add = el('button', 'tile tile-add edit-only');
+  add.title = '上传图片';
+  add.setAttribute('aria-label', '上传图片');
+  add.addEventListener('click', async e => {
+    e.stopPropagation();
+    const cap = per === 1 ? 24 : per;
+    const filled = b.images.filter(Boolean).length;
+    if (filled >= cap) return;
+    const urls = (await pickImages(true, 1400)).slice(0, cap - filled);
+    if (!urls.length) return;
+    if (per === 1) {
+      b.images.push(...urls);
+    } else {
+      // 按点击的槽位落位：不够长就补空槽，已有槽位不移动
+      while (b.images.length <= index) b.images.push('');
+      b.images.splice(index, 1, ...urls);
+    }
+    rebuildBlock(b.id);
+    queueSave();
+  });
+  return add;
+}
 function buildImage(b) {
   const grid = el('div', 'block-content img-grid');
   grid.dataset.layout = b.layout;
   grid.dataset.role = 'img';
 
-  b.images.forEach((src, i) => {
-    const tile = el('div', 'tile');
-    const img = new Image();
-    img.src = src;
-    img.alt = '';
-    tile.appendChild(img);
-    const del = el('button', 'tile-del edit-only', '✕');
-    del.title = '删除这张图';
-    del.addEventListener('click', e => {
-      e.stopPropagation();
-      b.images.splice(i, 1);
-      rebuildBlock(b.id);
-    });
-    tile.appendChild(del);
-    grid.appendChild(tile);
-  });
-
-  // 三列最多 3 张、四列最多 4 张；占位只出现在下一个空位，填满即消失
   const per = b.layout === 'three' ? 3 : b.layout === 'four' ? 4 : 1;
-  const slots = per === 1 || b.images.length < per ? 1 : 0;
-  for (let k = 0; k < slots; k++) {
-    const add = el('button', 'tile tile-add edit-only', '+');
-    add.title = per === 1 ? '上传图片' : '上传图片 · 可一次选 ' + per + ' 张';
-    add.addEventListener('click', async e => {
-      e.stopPropagation();
-      const room = per === 1 ? 24 : Math.max(0, per - b.images.length);
-      if (!room) return;
-      const urls = (await pickImages(true, 1400)).slice(0, room);
-      if (urls.length) {
-        b.images.push(...urls);
-        rebuildBlock(b.id);
-        queueSave();
-      }
-    });
-    grid.appendChild(add);
+
+  if (per === 1) {
+    // 单列：图片依次堆叠，末尾保留一个导入位
+    b.images.forEach((src, i) => { if (src) grid.appendChild(imageTile(b, src, i)); });
+    grid.appendChild(addTile(b, b.images.length, per));
+    return grid;
+  }
+
+  // 三/四列：槽位固定，空槽一直显示导入键；旧草稿超过上限时按实际张数显示
+  const slots = Math.max(per, b.images.length);
+  for (let i = 0; i < slots; i++) {
+    grid.appendChild(b.images[i] ? imageTile(b, b.images[i], i) : addTile(b, i, per));
   }
   return grid;
 }
@@ -1801,6 +1864,23 @@ $('#bgDot').addEventListener('input', e => {
   if (!bg.dots) bg.dots = true;
   bg.image = '';
   applyBg();
+  queueSave();
+});
+
+$('#veilAlpha').addEventListener('input', e => {
+  S.bg.veilAlpha = +e.target.value;
+  applyVeil();
+  queueSave();
+});
+$('#veilColor').addEventListener('input', e => {
+  S.bg.veilColor = e.target.value;
+  applyVeil();
+  queueSave();
+});
+$('#veilReset').addEventListener('click', () => {
+  S.bg.veilColor = '';
+  S.bg.veilAlpha = null;
+  applyVeil();
   queueSave();
 });
 
