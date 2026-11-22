@@ -1127,24 +1127,48 @@ function bindEditable(node, onChange, single) {
 }
 
 /* ---------------- image helpers ---------------- */
+function isHeicFile(f) {
+  return /image\/hei[cf]/i.test(f && f.type || '') || /\.hei[cf]$/i.test(f && f.name || '');
+}
 function shrink(file, max) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = () => {
-      const ratio = Math.min(1, max / Math.max(img.width, img.height));
-      const w = Math.max(1, Math.round(img.width * ratio));
-      const h = Math.max(1, Math.round(img.height * ratio));
-      const c = document.createElement('canvas');
-      c.width = w; c.height = h;
-      const ctx = c.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, w, h);
-      ctx.drawImage(img, 0, 0, w, h);
+    let settled = false;
+    const fail = why => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       URL.revokeObjectURL(url);
-      resolve(c.toDataURL('image/jpeg', 0.85));
+      reject(new Error(why || 'decode'));
     };
-    img.onerror = err => { URL.revokeObjectURL(url); reject(err); };
+    const ok = d => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      URL.revokeObjectURL(url);
+      resolve(d);
+    };
+    // 部分浏览器/容器解码大图或 HEIC 时既不触发 onload 也不触发 onerror，必须兜底
+    const timer = setTimeout(() => fail('timeout'), 8000);
+    img.onload = () => {
+      try {
+        const ratio = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * ratio));
+        const h = Math.max(1, Math.round(img.height * ratio));
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        const d = c.toDataURL('image/jpeg', 0.85);
+        // 内存不足时 toDataURL 可能返回空 data URI 而不抛错
+        if (!d || d === 'data:,' || d.length < 128) fail('canvas');
+        else ok(d);
+      } catch (e) { fail('canvas'); }
+    };
+    img.onerror = () => fail(isHeicFile(file) ? 'heic' : 'decode');
     img.src = url;
   });
 }
@@ -1162,7 +1186,8 @@ function toSquare(src, size) {
       ctx.fillRect(0, 0, size, size);
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
-      resolve(c.toDataURL('image/jpeg', 0.92));
+      const d = c.toDataURL('image/jpeg', 0.92);
+      resolve(!d || d === 'data:,' || d.length < 128 ? src : d);
     };
     img.onerror = () => resolve(src);
     img.src = src;
@@ -1177,17 +1202,36 @@ function pickImages(multiple, max) {
     inp.multiple = !!multiple;
     inp.style.display = 'none';
     document.body.appendChild(inp);
+    let settled = false;
+    const done = arr => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener('focus', onFocus);
+      clearTimeout(focusTimer);
+      inp.remove();
+      resolve(arr);
+    };
     inp.addEventListener('change', async () => {
       const files = Array.from(inp.files || []).slice(0, multiple ? 24 : 1);
-      inp.remove();
       const out = [];
-      let skipped = 0;
+      let skipped = 0, heic = 0;
       for (const f of files) {
-        try { out.push(await shrink(f, max)); } catch (e) { skipped++; }
+        try { out.push(await shrink(f, max)); }
+        catch (e) { if (e && e.message === 'heic') heic++; else skipped++; }
       }
-      if (skipped) toast('有 ' + skipped + ' 张图片读取失败，已跳过');
-      resolve(out);
+      if (heic) toast('HEIC 格式的图片暂时无法读取，请用 JPG / PNG');
+      else if (skipped) toast('有 ' + skipped + ' 张图片读取失败，已跳过');
+      done(out);
     });
+    // 部分容器的相册选择器偶发不回调 change：焦点回到页面后仍无结果就收尾，避免点击永久卡死
+    let focusTimer = null;
+    const onFocus = () => {
+      clearTimeout(focusTimer);
+      focusTimer = setTimeout(() => {
+        if (!settled && !(inp.files && inp.files.length)) done([]);
+      }, 1500);
+    };
+    window.addEventListener('focus', onFocus);
     inp.click();
   });
 }
